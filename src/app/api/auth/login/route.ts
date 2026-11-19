@@ -23,5 +23,12 @@ export async function POST(req: NextRequest) {
     if (!user || !user.active || !(await bcrypt.compare(body.password, user.passwordHash))) return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
     await createSession({ id: user.id, role: user.role, name: user.name, schoolId: school.id, schoolSlug: school.slug });
     return NextResponse.json({ ok: true, school: { name: school.name, slug: school.slug } });
-  } catch { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
+} catch (error) {
+  console.error("LOGIN ERROR:", error);
+
+  return NextResponse.json(
+    { error: String(error) },
+    { status: 400 }
+  );
+}
 }
