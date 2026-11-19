@@ -1,0 +1,15 @@
+"use client";
+import {useEffect,useState} from "react";
+export default function FeesClient(){
+ const [fees,setFees]=useState<any[]>([]),[report,setReport]=useState<any>(null),[msg,setMsg]=useState("");
+ async function load(){const [f,r]=await Promise.all([fetch("/api/fee-structures").then(x=>x.json()),fetch("/api/finance-report").then(x=>x.json())]);setFees(Array.isArray(f)?f:[]);setReport(r.totals?r:null);}
+ useEffect(()=>{load()},[]);
+ async function save(e:React.FormEvent<HTMLFormElement>){e.preventDefault();const b=Object.fromEntries(new FormData(e.currentTarget));const r=await fetch("/api/fee-structures",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});setMsg(r.ok?"Fee structure saved.":"Could not save fee structure.");if(r.ok){e.currentTarget.reset();load();}}
+ return <><div className="two-col"><div className="panel"><h2>Add fee structure</h2><form onSubmit={save}><div className="form-grid">
+ <div className="field"><label>Description</label><input name="name" required placeholder="Tuition and activity fee"/></div><div className="field"><label>Curriculum</label><select name="curriculum"><option value="CBC">CBC</option><option value="CAMBRIDGE">Cambridge</option></select></div>
+ <div className="field"><label>Grade / Year</label><input name="grade" required/></div><div className="field"><label>Academic year</label><input name="academicYear" type="number" defaultValue={new Date().getFullYear()}/></div>
+ <div className="field"><label>Term / Session</label><input name="term" required placeholder="Term 1"/></div><div className="field"><label>Amount (KES)</label><input name="amount" type="number" min="0.01" step="0.01" required/></div></div><div className="actions"><button className="btn">Save fee structure</button></div>{msg&&<p className="sub">{msg}</p>}</form></div>
+ <div className="panel"><h2>Fee position</h2>{report&&<><p>Expected: <b>KES {report.totals.feesDue.toLocaleString()}</b></p><p>Collected: <b>KES {report.totals.paid.toLocaleString()}</b></p><p>Outstanding: <b>KES {report.totals.balance.toLocaleString()}</b></p></>}<a className="btn secondary" href="/api/finance-report" target="_blank">Open balance data</a></div></div>
+ <div className="panel" style={{marginTop:16}}><h2>Fee structures</h2><table className="table"><thead><tr><th>Description</th><th>Curriculum</th><th>Grade</th><th>Year</th><th>Term</th><th>Amount</th></tr></thead><tbody>{fees.map(f=><tr key={f.id}><td>{f.name}</td><td>{f.curriculum}</td><td>{f.grade}</td><td>{f.academicYear}</td><td>{f.term}</td><td>KES {Number(f.amount).toLocaleString()}</td></tr>)}</tbody></table></div>
+ <div className="panel" style={{marginTop:16}}><h2>Student fee balances</h2><table className="table"><thead><tr><th>Admission</th><th>Student</th><th>Curriculum</th><th>Grade</th><th>Due</th><th>Paid</th><th>Balance</th></tr></thead><tbody>{report?.students?.map((s:any)=><tr key={s.admissionNo}><td>{s.admissionNo}</td><td>{s.name}</td><td>{s.curriculum}</td><td>{s.grade}</td><td>{s.feesDue.toLocaleString()}</td><td>{s.paid.toLocaleString()}</td><td>{s.balance.toLocaleString()}</td></tr>)}</tbody></table></div></>;
+}

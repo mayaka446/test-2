@@ -1,0 +1,8 @@
+"use client";
+import {useEffect,useState} from "react";
+export default function PaymentForm(){
+ const [students,setStudents]=useState<any[]>([]),[msg,setMsg]=useState("");
+ useEffect(()=>{fetch("/api/students").then(r=>r.json()).then(setStudents).catch(()=>setStudents([]));},[]);
+ async function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));const r=await fetch("/api/payments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});const j=await r.json();if(r.ok){setMsg("Payment recorded. Receipt: "+j.receiptNo);e.currentTarget.reset();}else setMsg(j.error||"Could not record payment.");}
+ return <form onSubmit={submit}><div className="form-grid"><div className="field"><label>Student</label><select name="studentId" required><option value="">Choose student</option>{students.map(s=><option key={s.id} value={s.id}>{s.admissionNo} — {s.firstName} {s.lastName}</option>)}</select></div><div className="field"><label>Amount (KES)</label><input name="amount" type="number" min="0.01" step="0.01" required/></div><div className="field"><label>Payment method</label><select name="method"><option value="MOBILE_MONEY">Mobile money</option><option value="CASH">Cash</option><option value="BANK">Bank</option><option value="CARD">Card</option><option value="OTHER">Other</option></select></div><div className="field"><label>Transaction reference</label><input name="reference"/></div></div><div className="actions"><button className="btn">Save payment and issue receipt</button></div>{msg&&<p className="sub">{msg}</p>}</form>;
+}
