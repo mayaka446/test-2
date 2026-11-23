@@ -7,7 +7,7 @@ export async function generateAdmissionNo(schoolId: string | null, year: number 
   const school = schoolId
     ? await prisma.school.findUnique({ where: { id: schoolId }, select: { slug: true } })
     : null;
-  const prefix = (school?.slug ?? "SCH").replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 6) || "SCH";
+ const prefix = "ADM";
   const pattern = `${prefix}/${year}/`;
 
   const existing = await prisma.student.findMany({
