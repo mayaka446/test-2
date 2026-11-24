@@ -3,7 +3,7 @@ import {useEffect,useState} from "react";
 import {readPhotoFile} from "@/lib/photo";
 export default function StaffClient(){
  const [rows,setRows]=useState<any[]>([]),[msg,setMsg]=useState("");
- async function load(){const r=await fetch("/api/staff");setRows(await r.json());}
+ async function load(){const r=await fetch("/api/staff");const d=await r.json();setRows(Array.isArray(d)?d:[]);if(!r.ok)setMsg(d.error||"Could not load staff.");}
  useEffect(()=>{load()},[]);
  async function save(e:React.FormEvent<HTMLFormElement>){
   e.preventDefault();
