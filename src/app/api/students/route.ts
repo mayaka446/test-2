@@ -3,8 +3,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { generateAdmissionNo } from "@/lib/admission";
+import { validatePhoto, PhotoError } from "@/lib/photo";
 
-// admissionNo is no longer accepted from the client; it is generated on the server.
+// admissionNo is generated on the server, so the client never sends it.
 const schema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
@@ -15,6 +16,7 @@ const schema = z.object({
   guardianPhone: z.string().optional(),
   guardianEmail: z.string().optional(),
   dateOfBirth: z.string().optional(),
+  photoUrl: z.string().optional(),
 });
 
 export async function GET() {
@@ -34,6 +36,7 @@ export async function POST(req: NextRequest) {
   try {
     const user = await requireRole(["ADMIN"]);
     const body = schema.parse(await req.json());
+    const photoUrl = validatePhoto(body.photoUrl);
 
     // Two requests can compute the same number at once, so retry on a unique-constraint clash.
     let student = null;
@@ -44,6 +47,7 @@ export async function POST(req: NextRequest) {
           data: {
             ...body,
             admissionNo,
+            photoUrl,
             schoolId: user.schoolId,
             dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
           },
@@ -55,14 +59,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(student, { status: 201 });
   } catch (e: any) {
-    return NextResponse.json(
-      {
-        error:
-          e?.code === "P2002"
-            ? "Could not assign an admission number, please try again"
-            : "Invalid data or unauthorized request",
-      },
-      { status: 400 }
-    );
+    const message =
+      e instanceof PhotoError
+        ? e.message
+        : e?.code === "P2002"
+          ? "Could not assign an admission number, please try again"
+          : "Invalid data or unauthorized request";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
