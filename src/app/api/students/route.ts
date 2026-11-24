@@ -2,24 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
+import { generateAdmissionNo } from "@/lib/admission";
 import { validatePhoto, PhotoError } from "@/lib/photo";
+import { isValidGrade } from "@/lib/grades";
 
+// admissionNo is generated on the server, so the client never sends it.
 const schema = z.object({
-  employeeNo: z.string().min(1),
-  name: z.string().min(2),
-  email: z.string().email(),
-  phone: z.string().optional(),
-  department: z.string().optional(),
-  jobTitle: z.string().min(2),
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  grade: z.string().min(1),
+  curriculum: z.enum(["CBC", "CAMBRIDGE"]),
+  stream: z.string().optional(),
+  guardianName: z.string().optional(),
+  guardianPhone: z.string().optional(),
+  guardianEmail: z.string().optional(),
+  dateOfBirth: z.string().optional(),
   photoUrl: z.string().optional(),
 });
 
 export async function GET() {
   try {
-    const user = await requireRole(["ADMIN"]);
-    return NextResponse.json(
-      await prisma.staff.findMany({ where: { schoolId: user.schoolId }, orderBy: { name: "asc" } })
-    );
+    const user = await requireRole(["ADMIN", "TEACHER", "BURSAR"]);
+    const students = await prisma.student.findMany({
+      where: { schoolId: user.schoolId, active: true },
+      orderBy: { admissionNo: "asc" },
+    });
+    return NextResponse.json(students);
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -29,11 +37,32 @@ export async function POST(req: NextRequest) {
   try {
     const user = await requireRole(["ADMIN"]);
     const body = schema.parse(await req.json());
+
+    if (!isValidGrade(body.curriculum, body.grade)) {
+      return NextResponse.json({ error: "Grade does not match the selected curriculum" }, { status: 400 });
+    }
     const photoUrl = validatePhoto(body.photoUrl);
-    const staff = await prisma.staff.create({
-      data: { ...body, photoUrl, schoolId: user.schoolId },
-    });
-    return NextResponse.json(staff, { status: 201 });
+
+    // Two requests can compute the same number at once, so retry on a unique-constraint clash.
+    let student = null;
+    for (let attempt = 0; attempt < 3 && !student; attempt++) {
+      const admissionNo = await generateAdmissionNo(user.schoolId);
+      try {
+        student = await prisma.student.create({
+          data: {
+            ...body,
+            admissionNo,
+            photoUrl,
+            schoolId: user.schoolId,
+            dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
+          },
+        });
+      } catch (e: any) {
+        if (e?.code !== "P2002" || attempt === 2) throw e;
+      }
+    }
+
+    return NextResponse.json(student, { status: 201 });
   } catch (e: any) {
     if (e instanceof PhotoError) return NextResponse.json({ error: e.message }, { status: 400 });
     if (e?.name === "ZodError") {
@@ -41,8 +70,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Check "${issue?.path?.join(".")}": ${issue?.message}` }, { status: 400 });
     }
     if (e?.code === "P2002") {
-      return NextResponse.json({ error: "A staff member with this employee number or email already exists" }, { status: 400 });
+      return NextResponse.json({ error: "Could not assign an admission number, please try again" }, { status: 400 });
     }
-    return NextResponse.json({ error: `Could not save staff: ${e?.code || e?.message || "unknown error"}` }, { status: 400 });
+    return NextResponse.json({ error: `Could not save student: ${e?.code || e?.message || "unknown error"}` }, { status: 400 });
   }
 }
