@@ -62,7 +62,17 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(student, { status: 201 });
-  } catch (e: any) {
+    } catch (e: any) {
+    if (e instanceof PhotoError) return NextResponse.json({ error: e.message }, { status: 400 });
+    if (e?.name === "ZodError") {
+      const issue = e.issues?.[0];
+      return NextResponse.json({ error: `Check "${issue?.path?.join(".")}": ${issue?.message}` }, { status: 400 });
+    }
+    if (e?.code === "P2002") {
+      return NextResponse.json({ error: "Could not assign an admission number, please try again" }, { status: 400 });
+    }
+    return NextResponse.json({ error: `Could not save student: ${e?.code || e?.message || "unknown error"}` }, { status: 400 });
+  }
     const message =
       e instanceof PhotoError
         ? e.message
