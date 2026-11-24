@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { generateAdmissionNo } from "@/lib/admission";
 import { validatePhoto, PhotoError } from "@/lib/photo";
+import { isValidGrade } from "@/lib/grades";
 
 // admissionNo is generated on the server, so the client never sends it.
 const schema = z.object({
@@ -36,6 +37,9 @@ export async function POST(req: NextRequest) {
   try {
     const user = await requireRole(["ADMIN"]);
     const body = schema.parse(await req.json());
+        if (!isValidGrade(body.curriculum, body.grade)) {
+      return NextResponse.json({ error: "Grade does not match the selected curriculum" }, { status: 400 });
+    }
     const photoUrl = validatePhoto(body.photoUrl);
 
     // Two requests can compute the same number at once, so retry on a unique-constraint clash.
