@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { getSession, destroySession } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { LayoutDashboard, Users, UserRound, BookOpen, ClipboardCheck, GraduationCap, FileText, Wallet, BarChart3, School, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, UserRound, BookOpen, ClipboardCheck, GraduationCap, FileText, Wallet, BarChart3, School, LogOut, HelpCircle } from "lucide-react";
 import BackButton from "@/components/BackButton";
 
+
 const nav = [
-  { group: "OVERVIEW", links: [{ label: "Dashboard", path: "/dashboard", icon: LayoutDashboard }] },
+   { group: "OVERVIEW", links: [{ label: "Dashboard", path: "/dashboard", icon: LayoutDashboard }, { label: "Help & FAQ", path: "/help", icon: HelpCircle }] },
   { group: "SCHOOL MANAGEMENT", links: [
     { label: "Students", path: "/students", icon: Users }, { label: "Staff", path: "/staff", icon: UserRound },
     { label: "Classes & subjects", path: "/academics", icon: School }, { label: "Attendance", path: "/attendance", icon: ClipboardCheck }
@@ -23,6 +24,7 @@ export default async function Shell({ children }: { children: React.ReactNode })
   const session = await getSession();
   if (!session) redirect("/login");
   const allowed = (path: string) => {
+        if (path === "/help") return true;
     if (session.role === "TEACHER") return !["/finance"].includes(path);
     if (session.role === "STUDENT") return ["/dashboard", "/results", "/assignments", "/lesson-notes", "/attendance"].includes(path);
     if (session.role === "BURSAR") return ["/dashboard", "/students", "/finance", "/reports"].includes(path);
@@ -53,5 +55,6 @@ export default async function Shell({ children }: { children: React.ReactNode })
             <BackButton />
       {children}
     </main>
+        <WhatsAppButton />
   </div>;
 }
