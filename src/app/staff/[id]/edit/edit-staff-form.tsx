@@ -2,6 +2,7 @@
 import {useState} from "react";
 import {useRouter} from "next/navigation";
 import {readPhotoFile} from "@/lib/photo";
+import {DEPARTMENTS} from "@/lib/departments";
 
 export default function EditStaffForm({ staff }: { staff: any }) {
   const router = useRouter();
@@ -55,14 +56,11 @@ export default function EditStaffForm({ staff }: { staff: any }) {
     }
   }
 
-  const fields: [string, string, string][] = [
-    ["employeeNo", "Employee number", "text"],
-    ["name", "Full name", "text"],
-    ["email", "Email", "email"],
-    ["phone", "Phone", "tel"],
-    ["department", "Department", "text"],
-    ["jobTitle", "Job title", "text"],
-  ];
+  // Keep an older department value visible so it isn't lost when editing.
+  const departments =
+    staff.department && !(DEPARTMENTS as readonly string[]).includes(staff.department)
+      ? [staff.department, ...DEPARTMENTS]
+      : [...DEPARTMENTS];
 
   return (
     <form onSubmit={submit}>
@@ -73,12 +71,17 @@ export default function EditStaffForm({ staff }: { staff: any }) {
             <img src={staff.photoUrl} alt="" width={96} height={96} style={{ borderRadius: "50%", objectFit: "cover" }} />
           </div>
         )}
-        {fields.map(([n, l, t]) => (
-          <div className="field" key={n}>
-            <label>{l}</label>
-            <input name={n} type={t} defaultValue={staff[n]} required={["employeeNo", "name", "email", "jobTitle"].includes(n)} />
-          </div>
-        ))}
+        <div className="field"><label>Staff number</label><input name="employeeNo" value={staff.employeeNo} readOnly /></div>
+        <div className="field"><label>Full name</label><input name="name" defaultValue={staff.name} required /></div>
+        <div className="field"><label>Email</label><input name="email" type="email" defaultValue={staff.email} required /></div>
+        <div className="field"><label>Phone</label><input name="phone" type="tel" defaultValue={staff.phone} /></div>
+        <div className="field"><label>Job title</label><input name="jobTitle" defaultValue={staff.jobTitle} required /></div>
+        <div className="field">
+          <label>Department</label>
+          <select name="department" defaultValue={staff.department} required>
+            {departments.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
         <div className="field"><label>Replace photo (optional)</label><input name="photo" type="file" accept="image/*" /></div>
       </div>
       <div className="actions">
