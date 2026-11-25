@@ -3,16 +3,35 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { validatePhoto, PhotoError } from "@/lib/photo";
+import { DEPARTMENTS } from "@/lib/departments";
 
+// The staff number is generated on the server, so the client never sends it.
 const schema = z.object({
-  employeeNo: z.string().min(1),
   name: z.string().min(2),
   email: z.string().email(),
   phone: z.string().optional(),
-  department: z.string().optional(),
+  department: z.enum(DEPARTMENTS),
   jobTitle: z.string().min(2),
   photoUrl: z.string().optional(),
 });
+
+async function generateStaffNo(schoolId: string | null): Promise<string> {
+  const school = schoolId
+    ? await prisma.school.findUnique({ where: { id: schoolId }, select: { slug: true } })
+    : null;
+  const prefix = "STF" + ((school?.slug ?? "SCH").replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 6) || "SCH");
+  const pattern = `${prefix}/${new Date().getFullYear()}/`;
+  const existing = await prisma.staff.findMany({
+    where: { schoolId, employeeNo: { startsWith: pattern } },
+    select: { employeeNo: true },
+  });
+  let highest = 0;
+  for (const s of existing) {
+    const n = parseInt(s.employeeNo.slice(pattern.length), 10);
+    if (!Number.isNaN(n) && n > highest) highest = n;
+  }
+  return `${pattern}${String(highest + 1).padStart(4, "0")}`;
+}
 
 export async function GET() {
   try {
@@ -30,9 +49,18 @@ export async function POST(req: NextRequest) {
     const user = await requireRole(["ADMIN"]);
     const body = schema.parse(await req.json());
     const photoUrl = validatePhoto(body.photoUrl);
-    const staff = await prisma.staff.create({
-      data: { ...body, photoUrl, schoolId: user.schoolId },
-    });
+
+    let staff = null;
+    for (let attempt = 0; attempt < 3 && !staff; attempt++) {
+      const employeeNo = await generateStaffNo(user.schoolId);
+      try {
+        staff = await prisma.staff.create({
+          data: { ...body, employeeNo, photoUrl, schoolId: user.schoolId },
+        });
+      } catch (e: any) {
+        if (e?.code !== "P2002" || attempt === 2) throw e;
+      }
+    }
     return NextResponse.json(staff, { status: 201 });
   } catch (e: any) {
     if (e instanceof PhotoError) return NextResponse.json({ error: e.message }, { status: 400 });
@@ -41,7 +69,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Check "${issue?.path?.join(".")}": ${issue?.message}` }, { status: 400 });
     }
     if (e?.code === "P2002") {
-      return NextResponse.json({ error: "A staff member with this employee number or email already exists" }, { status: 400 });
+      return NextResponse.json({ error: "A staff member with this email already exists" }, { status: 400 });
     }
     return NextResponse.json({ error: `Could not save staff: ${e?.code || e?.message || "unknown error"}` }, { status: 400 });
   }
