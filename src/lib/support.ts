@@ -1,6 +1,6 @@
 // Set the school's WhatsApp number here (international format, no + or spaces).
 // Leave it empty and the floating button stays hidden.
-export const WHATSAPP_NUMBER = "";
+export const WHATSAPP_NUMBER = "254740152233";
 export const WHATSAPP_MESSAGE = "Hello, I need help with the Mayakas Management System.";
 
 export const FAQS: { q: string; a: string }[] = [
