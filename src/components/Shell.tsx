@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSession, destroySession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { LayoutDashboard, Users, UserRound, BookOpen, ClipboardCheck, GraduationCap, FileText, Wallet, BarChart3, School, LogOut } from "lucide-react";
+import BackButton from "@/components/BackButton";
 
 const nav = [
   { group: "OVERVIEW", links: [{ label: "Dashboard", path: "/dashboard", icon: LayoutDashboard }] },
@@ -49,6 +50,7 @@ export default async function Shell({ children }: { children: React.ReactNode })
       <header className="topbar"><div className="topbar-title"><span className="topbar-kicker">MAYAKAS MANAGEMENT SYSTEM</span><strong>School administration portal</strong></div>
         <div className="user-area"><div className="avatar">{session.name.slice(0, 1).toUpperCase()}</div><div className="user-meta"><strong>{session.name}</strong><span>{session.role.toLowerCase()}</span></div><form action={signOut}><button className="logout-btn" type="submit" aria-label="Sign out"><LogOut size={17}/><span>Sign out</span></button></form></div>
       </header>
+            <BackButton />
       {children}
     </main>
   </div>;
