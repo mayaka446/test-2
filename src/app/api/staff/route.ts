@@ -15,14 +15,11 @@ const schema = z.object({
   photoUrl: z.string().optional(),
 });
 
-async function generateStaffNo(schoolId: string | null): Promise<string> {
-  const school = schoolId
-    ? await prisma.school.findUnique({ where: { id: schoolId }, select: { slug: true } })
-    : null;
-  const prefix = "STF" + ((school?.slug ?? "SCH").replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 6) || "SCH");
-  const pattern = `${prefix}/${new Date().getFullYear()}/`;
+// Format: STF/2026/0001. Numbers are checked across all staff so they stay unique.
+async function generateStaffNo(): Promise<string> {
+  const pattern = `STF/${new Date().getFullYear()}/`;
   const existing = await prisma.staff.findMany({
-    where: { schoolId, employeeNo: { startsWith: pattern } },
+    where: { employeeNo: { startsWith: pattern } },
     select: { employeeNo: true },
   });
   let highest = 0;
@@ -52,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     let staff = null;
     for (let attempt = 0; attempt < 3 && !staff; attempt++) {
-      const employeeNo = await generateStaffNo(user.schoolId);
+      const employeeNo = await generateStaffNo();
       try {
         staff = await prisma.staff.create({
           data: { ...body, employeeNo, photoUrl, schoolId: user.schoolId },
